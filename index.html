@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Palmerins and Pigeonholes — Mischa Nijhof</title>
+<style>
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── ROOT ── */
+:root {
+  --black:  #0a0a0a;
+  --ink:    #1c1812;
+  --faded:  #6b5e4e;
+  --pale:   #b8a48c;
+  --paper:  rgba(248, 243, 234, 0.82);
+  --paper2: rgba(245, 238, 225, 0.52);
+  --paper3: rgba(242, 234, 218, 0.32);
+  --serif:  'Times New Roman', Times, serif;
+}
+
+html, body {
+  font-family: var(--serif);
+  background: var(--black);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── FIXED NAV ── */
+#nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.4rem 2rem 0;
+  pointer-events: none;
+}
+#nav-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  pointer-events: all;
+}
+#nav-chapters a {
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+  transition: color 0.2s;
+}
+#nav-chapters a:hover,
+#nav-chapters a.active { color: rgba(255,255,255,0.95); }
+#nav-title {
+  font-family: var(--serif);
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.45);
+  text-align: right;
+  line-height: 1.6;
+  pointer-events: none;
+}
+
+/* ── STAGE ── */
+#stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5.5rem 0 5rem;
+}
+
+/* ── BOOK STACK ── */
+.book-stack {
+  position: relative;
+  width: min(660px, 90vw);
+}
+
+/* Ghost pages */
+.page-ghost {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  border-radius: 1px;
+  pointer-events: none;
+  min-height: 400px;
+}
+.page-ghost-1 {
+  background: var(--paper3);
+  transform: translate(7px, 9px) rotate(0.45deg);
+}
+.page-ghost-2 {
+  background: var(--paper2);
+  transform: translate(3.5px, 4.5px) rotate(0.18deg);
+}
+
+/* ── ACTIVE PAGE ── */
+.page {
+  position: relative;
+  z-index: 10;
+  background: var(--paper);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  padding: 3.5rem 3.8rem 3rem;
+  display: none;
+}
+.page.active {
+  display: block;
+  animation: turnIn 0.55s cubic-bezier(0.25,0.46,0.45,0.94) forwards;
+}
+.page.leaving {
+  display: block;
+  animation: turnOut 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes turnIn {
+  from { opacity:0; transform: perspective(1400px) rotateY(-5deg) translateX(-14px); transform-origin: left center; }
+  to   { opacity:1; transform: perspective(1400px) rotateY(0deg)  translateX(0); }
+}
+@keyframes turnOut {
+  from { opacity:1; transform: perspective(1400px) rotateY(0deg); transform-origin: right center; }
+  to   { opacity:0; transform: perspective(1400px) rotateY(5deg) translateX(14px); }
+}
+
+/* ── TYPOGRAPHY ── */
+.page-eyebrow {
+  font-size: 0.63rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--faded);
+  margin-bottom: 2rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(100,80,50,0.2);
+}
+h1.cover-title {
+  font-size: clamp(1.9rem, 5vw, 2.9rem);
+  font-weight: normal;
+  line-height: 1.12;
+  margin-bottom: 0.5rem;
+}
+.cover-sub {
+  font-size: 0.86rem;
+  font-style: italic;
+  color: var(--faded);
+  line-height: 1.65;
+  margin-bottom: 0.55rem;
+  max-width: 400px;
+}
+.cover-author {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faded);
+  margin-bottom: 1.8rem;
+}
+h2 {
+  font-size: clamp(1.2rem,3vw,1.75rem);
+  font-weight: normal;
+  margin-bottom: 1.2rem;
+  line-height: 1.2;
+}
+h3 {
+  font-size: 0.88rem;
+  font-weight: normal;
+  font-style: italic;
+  color: var(--faded);
+  margin: 1.8rem 0 0.7rem;
+}
+p {
+  font-size: clamp(0.87rem,1.8vw,0.96rem);
+  line-height: 1.84;
+  margin-bottom: 1rem;
+  text-align: justify;
+  hyphens: auto;
+  color: var(--ink);
+}
+p.drop::first-letter {
+  float: left;
+  font-size: 3.4em;
+  line-height: 0.78;
+  padding: 0.04em 0.07em 0 0;
+  color: var(--faded);
+}
+blockquote {
+  margin: 1.6rem 1.2rem;
+  padding-left: 1rem;
+  border-left: 1.5px solid var(--pale);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--faded);
+  line-height: 1.7;
+}
+.rule { border:none; border-top:1px solid rgba(100,80,50,0.17); margin:1.7rem 0; }
+.ornament { text-align:center; color:var(--pale); margin:1.5rem 0; font-size:1rem; letter-spacing:0.5em; }
+.small { font-size:0.72rem; color:var(--faded); }
+.centered { text-align:center; }
+.rq {
+  margin: 0.9rem 0;
+  padding: 0.5rem 0.85rem;
+  border-left: 2px solid var(--ink);
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.cover-img {
+  width: calc(100% + 7.6rem);
+  margin-left: -3.8rem;
+  height: 210px;
+  object-fit: cover;
+  object-position: center 22%;
+  display: block;
+  margin-bottom: 2rem;
+  filter: sepia(22%) contrast(0.88);
+  opacity: 0.8;
+}
+
+/* TOC */
+.toc { border-top:1px solid rgba(100,80,50,0.2); border-bottom:1px solid rgba(100,80,50,0.2); padding:0.9rem 0; margin:1.5rem 0; }
+.toc-label { font-size:0.6rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--faded); margin-bottom:0.55rem; }
+.toc ul { list-style:none; }
+.toc li { display:flex; align-items:baseline; }
+.toc button {
+  background:none; border:none;
+  font-family:var(--serif); font-size:0.87rem;
+  color:var(--ink); cursor:pointer;
+  display:flex; align-items:baseline; gap:0.4rem;
+  width:100%; text-align:left; padding:0.11rem 0;
+}
+.toc button:hover { text-decoration:underline; text-underline-offset:3px; }
+.toc-n { font-size:0.63rem; color:var(--faded); font-style:italic; min-width:1.1rem; }
+.toc-dots { flex:1; border-bottom:1px dotted var(--pale); transform:translateY(-3px); }
+
+/* Page turn */
+.page-turn {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:2.5rem; padding-top:0.85rem;
+  border-top:1px solid rgba(100,80,50,0.14);
+}
+.page-turn button {
+  background:none; border:none;
+  font-family:var(--serif); font-size:0.76rem;
+  color:var(--faded); cursor:pointer;
+  padding:0.18rem 0; border-bottom:1px solid transparent;
+  transition:color .2s,border-color .2s; letter-spacing:0.04em;
+}
+.page-turn button:hover { color:var(--ink); border-bottom-color:var(--ink); }
+.page-turn button:disabled { opacity:0.18; cursor:default; }
+.page-num { font-size:0.63rem; color:var(--faded); font-style:italic; }
+
+/* Media */
+.audio-wrap { margin:1.5rem 0; padding:0.9rem 1.1rem; border:1px solid rgba(100,80,50,0.2); background:rgba(248,243,234,0.5); }
+.media-label { font-size:0.6rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--faded); margin-bottom:0.45rem; display:block; }
+audio { width:100%; height:34px; }
+.pdf-wrap { margin:1.5rem 0; border:1px solid rgba(100,80,50,0.2); }
+.pdf-wrap .media-label { padding:0.45rem 0.85rem; border-bottom:1px solid rgba(100,80,50,0.14); background:rgba(248,243,234,0.4); display:block; }
+.pdf-wrap iframe { width:100%; height:500px; border:none; display:block; }
+.miro-wrap { margin:1.5rem 0; border:1px solid rgba(100,80,50,0.2); overflow:hidden; }
+.miro-wrap .media-label { padding:0.45rem 0.85rem; border-bottom:1px solid rgba(100,80,50,0.14); background:rgba(248,243,234,0.4); display:block; }
+.miro-wrap iframe { width:100%; height:390px; border:none; display:block; }
+
+/* Photos */
+.photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.55rem; margin:1.5rem 0; }
+.photo-grid img { width:100%; aspect-ratio:4/3; object-fit:cover; filter:sepia(16%) contrast(0.9); opacity:0.85; display:block; }
+.photo-grid img.full { grid-column:1/-1; aspect-ratio:16/6; object-position:center 22%; }
+.photo-credit { font-size:0.63rem; color:var(--faded); font-style:italic; margin-top:0.15rem; grid-column:1/-1; }
+
+/* References */
+.ref-list { list-style:none; }
+.ref-list li { font-size:0.81rem; line-height:1.65; color:var(--faded); padding:0.42rem 0 0.42rem 1.15rem; text-indent:-1.15rem; border-bottom:1px dotted rgba(100,80,50,0.14); }
+
+.page-footer { font-size:0.6rem; color:var(--faded); text-align:center; margin-top:1.8rem; letter-spacing:0.06em; }
+
+@media (max-width:580px) {
+  .page { padding:2.2rem 1.5rem 1.8rem; }
+  #nav { padding:0.9rem 1rem 0; }
+  .cover-img { height:150px; width:calc(100% + 3rem); margin-left:-1.5rem; }
+  .photo-grid { grid-template-columns:1fr; }
+  .photo-grid img.full { aspect-ratio:4/3; }
+  .miro-wrap iframe { height:240px; }
+  .pdf-wrap iframe { height:340px; }
+}
+</style>
+</head>
+<body>
+
+<nav id="nav" aria-label="Chapters">
+  <div id="nav-chapters">
+    <a href="#" onclick="goTo(0);return false;" id="nav-0">Palmerins and Pigeonholes</a>
+    <a href="#" onclick="goTo(1);return false;" id="nav-1">Abstract</a>
+    <a href="#" onclick="goTo(2);return false;" id="nav-2">Introduction</a>
+    <a href="#" onclick="goTo(3);return false;" id="nav-3">Mindmap</a>
+    <a href="#" onclick="goTo(4);return false;" id="nav-4">Literature review</a>
+    <a href="#" onclick="goTo(5);return false;" id="nav-5">Case study</a>
+    <a href="#" onclick="goTo(6);return false;" id="nav-6">Entire paper</a>
+  </div>
+  <div id="nav-title">Mischa Nijhof<br>2026</div>
+</nav>
+
+<div id="stage">
+  <div class="book-stack">
+    <div class="page-ghost page-ghost-1" id="ghost1"></div>
+    <div class="page-ghost page-ghost-2" id="ghost2"></div>
+
+    <!-- PAGE 0: COVER -->
+    <div class="page active" id="page-0">
+      <div class="page-eyebrow">Mischa Nijhof &mdash; 2026</div>
+      <img src="assets/photo4.jpg" alt="Installation at Jardim do Bombarda" class="cover-img">
+      <h1 class="cover-title">Palmerins<br>and Pigeonholes</h1>
+      <p class="cover-sub">Reframing Capture in Field Recording through Speculative Writing and Fertile Failure</p>
+      <p class="cover-author">Mischa Nijhof</p>
+      <div class="toc">
+        <p class="toc-label">Contents</p>
+        <ul>
+          <li><button onclick="goTo(1)"><span class="toc-n">I</span>Abstract<span class="toc-dots"></span></button></li>
+          <li><button onclick="goTo(2)"><span class="toc-n">II</span>Introduction<span class="toc-dots"></span></button></li>
+          <li><button onclick="goTo(3)"><span class="toc-n">III</span>Mindmap<span class="toc-dots"></span></button></li>
+          <li><button onclick="goTo(4)"><span class="toc-n">IV</span>Literature Review<span class="toc-dots"></span></button></li>
+          <li><button onclick="goTo(5)"><span class="toc-n">V</span>Case Study<span class="toc-dots"></span></button></li>
+          <li><button onclick="goTo(6)"><span class="toc-n">VI</span>Discussion, Future Research &amp; References<span class="toc-dots"></span></button></li>
+        </ul>
+      </div>
+      <p class="small centered">Lusófona University, Lisbon &bull; Interdisciplinary Project Incubation</p>
+      <div class="page-turn">
+        <button disabled>&larr;</button>
+        <span class="page-num">cover</span>
+        <button onclick="goTo(1)">Abstract &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes</p>
+    </div>
+
+    <!-- PAGE 1: ABSTRACT -->
+    <div class="page" id="page-1">
+      <div class="page-eyebrow">I &mdash; Abstract</div>
+      <h2>Abstract</h2>
+      <p class="drop">On a cloudless April afternoon, I went to Praça Francisco de Morais with six microphones to record the sound of a pigeon. The square is named after the sixteenth-century author of the chivalric romance <em>Palmerin of England</em>. Almost five centuries separate that novel from my recording, yet their contents share a structural logic: the pursuit of the encounter and the desire to capture.</p>
+      <p>This paper lets the grammar of field recording discourse and that of the chivalric romance leak into one another, allowing their logics to expose one another's failures. It asks: what does the failure to capture reveal about the logic embedded in field recording discourse, and what can speculative writing offer in its place?</p>
+      <p>My argument is not that individual acts of field recording are harmful by definition, but that the grammar of capture influences performed practice, and that finding alternatives to that grammar is an important part of field recording practice. The case study proposes methodological failure as the framework: a binaural recording of a failed field trip, accompanied by a booklet of diary entries interleaved with pages from <em>Palmerin of England</em>.</p>
+      <div class="page-turn">
+        <button onclick="goTo(0)">&larr; Cover</button>
+        <span class="page-num">i</span>
+        <button onclick="goTo(2)">Introduction &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes &bull; Mischa Nijhof &bull; 2026</p>
+    </div>
+
+    <!-- PAGE 2: INTRODUCTION -->
+    <div class="page" id="page-2">
+      <div class="page-eyebrow">II &mdash; Introduction</div>
+      <h2>Introduction</h2>
+      <p class="drop">This research draws from a personal necessity. As a student funded to travel through Europe to learn about sound, at the core of this practice is a need to continue working guided by what Donna Haraway (1988) calls <em>situated knowledges</em>: the understanding that all knowledge is produced from an embodied position, and that acknowledging this makes rich and responsible knowledge-making possible.</p>
+      <p>My argument is not that individual acts of field recording are harmful by definition, but that the grammar of capture influences performed practice. Alternatives are already being proposed from within the discourse: M.P. Wright (2022) suggests this grammar is not settled, and proposes a different vocabulary in its place, from <em>capture</em> to <em>inhabit</em>, from <em>pursue</em> to <em>participate</em>.</p>
+      <hr class="rule">
+      <h3>Research questions</h3>
+      <div class="rq">What does the failure to capture reveal about the logic embedded in field recording discourse, and what can speculative writing offer in its place?</div>
+      <div class="rq">In what ways does the chivalric logic of pursuit and capture persist in contemporary field recording discourse?</div>
+      <div class="rq">How might a field recording practice built around attentiveness rather than capture reframe what counts as a successful field trip?</div>
+      <div class="page-turn">
+        <button onclick="goTo(1)">&larr; Abstract</button>
+        <span class="page-num">ii</span>
+        <button onclick="goTo(3)">Mindmap &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes &bull; Mischa Nijhof &bull; 2026</p>
+    </div>
+
+    <!-- PAGE 3: MINDMAP -->
+    <div class="page" id="page-3">
+      <div class="page-eyebrow">III &mdash; Mindmap</div>
+      <h2>Research Map</h2>
+      <p>The map below integrates the main research question, sub-questions, theoretical references, key concepts, and the case study. It traces how the literature grounds the hypothesis and where the practical work opens new questions.</p>
+      <div class="miro-wrap">
+        <span class="media-label">Interactive Mindmap &mdash; Miro</span>
+        <iframe src="https://miro.com/app/live-embed/uXjVGusXMG0=/?embedMode=view_only_without_ui&moveToViewport=1187,-2540,3221,1766&embedId=569529909199" frameborder="0" scrolling="no" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen title="Research mindmap"></iframe>
+      </div>
+      <div class="page-turn">
+        <button onclick="goTo(2)">&larr; Introduction</button>
+        <span class="page-num">iii</span>
+        <button onclick="goTo(4)">Literature Review &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes &bull; Mischa Nijhof &bull; 2026</p>
+    </div>
+
+    <!-- PAGE 4: LITERATURE REVIEW -->
+    <div class="page" id="page-4">
+      <div class="page-eyebrow">IV &mdash; Literature Review</div>
+      <h2>The Grammar of Capture</h2>
+      <p class="drop">Medieval romances about encounters with the feisty foreign and ten-eyed monstrous were not passive reflections of social ideals but, as Jaeger (1985) argues, actively shaped them, blurring the distinction between literary imagination and performed practice. The structural grammar of the knight in unknown territory attempting to capture leaks from the chivalric romance into the colonial explorer, into the natural history expedition, into the field recordist. Not because these acts are equivalent, but because they share an inherited vocabulary that pre-shapes the encounter before it begins.</p>
+      <p>The field recording discourse this research draws from is, in Wright's (2022, p. 2) words, <em>an exploration of the gap worlds of humans and nonhumans through the capture, construction, and mediation of sound.</em> Its grammar favours the recordist as neutral witness to an acoustic world that exists independently of the act of recording it: as if the sound were there to be found rather than co-created. Mary Louise Pratt's (1992) concept of the contact zone, a space where different histories meet under asymmetrical conditions, frames the recording location as already charged before a microphone arrives. Wright (2022) makes the same point from a different angle: tactless field recording is the failure to attend to the encounter as an encounter, a lack of relational awareness toward environment and nonhuman others.</p>
+      <hr class="rule">
+      <h3>Speculative Writing</h3>
+      <p>Haraway's (2016) concept of metaphorisation, the active engagement with how language re-figures worlds rather than illustrating pre-existing ideas, offers an orientation for language that is relational rather than extractive. In Wright's (2013) <em>Proposed Vocabulary Exchange</em>, the recordist lays out paper cut-outs of common words and suggests alternatives: from <em>take</em> to <em>make</em>, from <em>pursue</em> to <em>participate</em>, from <em>capture</em> to <em>inhabit</em>. Sontag (1977) tells us that to capture a moment is to participate in its dying: every photograph is a certificate of presence that simultaneously announces an absence. A recording does capture a sound, but not the complexity of the encounter that created it. The recording arrives home; the encounter does not.</p>
+      <p>Ursula K. Le Guin's <em>The Author of the Acacia Seeds</em> (1974) demonstrates that speculation does not oppose serious study: language can open onto a different set of relations rather than confirming those already held.</p>
+      <hr class="rule">
+      <h3>Self-Erasure and Self-Performance</h3>
+      <p>The dominant presentation of the <em>I</em> in field recording is non-presentation: the recordist as a ghost, the microphone as a transparent window into the real. Sterne (2003) argues that recording technologies were built around a logic of separating sound from its source. Wright's (2022) figure of the Noisy Nonself turns self-erasure into self-performance: a monstrous, bigfoot-like persona whose windshield fur makes visible what is normally suppressed. This case study takes a different approach: making the means of capture visible through documented failure rather than embodied persona.</p>
+      <div class="page-turn">
+        <button onclick="goTo(3)">&larr; Mindmap</button>
+        <span class="page-num">iv</span>
+        <button onclick="goTo(5)">Case Study &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes &bull; Mischa Nijhof &bull; 2026</p>
+    </div>
+
+    <!-- PAGE 5: CASE STUDY -->
+    <div class="page" id="page-5">
+      <div class="page-eyebrow">V &mdash; Case Study</div>
+      <h2>Palmerins and Pigeonholes</h2>
+      <p>The three literature threads meet here: the grammar of capture shapes the encounter, language can re-figure rather than just describe, and the recordist's presence is never neutral.</p>
+      <hr class="rule">
+      <h3>I. Audio &mdash; use headphones</h3>
+      <p>The binaural format places the listener inside the recordist's spatial position, hearing the equipment being sorted in the bedroom, as if it were the listener themselves getting ready to go out and record. This refuses the god-trick: the recordist is present rather than erased. A mosquito zooms past the microphone with a buzzing question: does the hand grip the microphone, or does the microphone grip the hand?</p>
+      <div class="audio-wrap">
+        <span class="media-label">Listen &mdash; binaural, use headphones</span>
+        <audio controls preload="metadata">
+          <source src="assets/audio.mp3" type="audio/mpeg">
+          Your browser does not support audio.
+        </audio>
+      </div>
+      <hr class="rule">
+      <h3>II. Booklet</h3>
+      <p>Diary entries interleaved with pages from <em>Palmerin of England</em>, placed side by side without commentary. The structural resemblances surface as the reader turns the pages.</p>
+      <div class="pdf-wrap">
+        <span class="media-label">Booklet &mdash; scroll or open full screen</span>
+        <iframe src="assets/booklet.pdf" title="Palmerins and Pigeonholes booklet"></iframe>
+      </div>
+      <hr class="rule">
+      <h3>III. Installation at Jardim do Bombarda, Lisbon, May 2026</h3>
+      <div class="photo-grid">
+        <img src="assets/photo3.jpg" alt="Setting up the installation" class="full">
+        <img src="assets/photo1.jpg" alt="Visitor reading booklet with headphones">
+        <img src="assets/photo2.jpg" alt="Visitors listening in the garden">
+        <img src="assets/photo4.jpg" alt="Visitor listening on bench">
+        <p class="photo-credit">Photography: Vera Marmelo &bull; Jardim do Bombarda, Lisbon, May 2026</p>
+      </div>
+      <div class="page-turn">
+        <button onclick="goTo(4)">&larr; Literature Review</button>
+        <span class="page-num">v</span>
+        <button onclick="goTo(6)">Discussion &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes &bull; Mischa Nijhof &bull; 2026</p>
+    </div>
+
+    <!-- PAGE 6: DISCUSSION + REFERENCES -->
+    <div class="page" id="page-6">
+      <div class="page-eyebrow">VI &mdash; Discussion, Future Research &amp; References</div>
+      <h2>What Does the Puddle Reflect?</h2>
+      <p class="drop">The unsuccessful field trip yielded three things a conventionally successful one could not have. First, the ambient distance: traffic, wind, the square's general texture, fiddling with equipment. What is heard is not the pigeon but the conditions under which the pigeon was pursued. Second, the diary entries expanded only because the encounter failed: there was nothing to document, so the writing turned toward the framework itself. Third, the failure exposed the intention as its own contradiction: a critique of capture organised around a desire to capture. A clean take confirms the framework rather than revealing it.</p>
+      <blockquote>Haraway's (2016) antidote to paralysis is not a checklist of principles but a cultivation of the capacity to respond: to be open, accountable, and to allow the encounter to make demands the framework did not anticipate.</blockquote>
+      <p>The booklet form, combining diary and romance, enacts a version of Haraway's cat's cradle: a string game that can only be played by at least two parties, where no single player authors the pattern and each move inherits the shape left by the other.</p>
+      <h3>Future Research</h3>
+      <p>What does the puddle in the cornfield reflect? In this project, it is the space that opens when the singular objective flies away. Not an absence of successful capture but an alternative approach: another attentiveness, another grammar. What would a field recording practice built systematically around inhabiting rather than capturing look like, not as a single failed afternoon, but as a sustained method? What other contact zones, other squares, other pigeons, other inherited grammars, might be worth entering without a clean take in mind?</p>
+      <div class="ornament">&lowast; &lowast; &lowast;</div>
+      <h3>References</h3>
+      <ul class="ref-list">
+        <li>Cervantes Saavedra, M. de. (1605/2005). <em>Don Quixote</em> (E. Grossman, Trans.). Vintage.</li>
+        <li>Dempster, B. (2000). Sympoietic and autopoietic systems. In J. K. Allen &amp; J. Wilby (Eds.), <em>Proceedings of the World Congress of the System Sciences and ISSS 2000</em>.</li>
+        <li>Haraway, D. (1988). Situated knowledges. <em>Feminist Studies</em>, <em>14</em>(3), 575&ndash;599.</li>
+        <li>Haraway, D. (2016). <em>Staying with the trouble</em>. Duke University Press.</li>
+        <li>Jaeger, C. S. (1985). <em>The origins of courtliness</em>. University of Pennsylvania Press.</li>
+        <li>Le Guin, U. K. (1974/2012). The author of the acacia seeds. In <em>The unreal and the real</em>. Gollancz.</li>
+        <li>Leach, A. (n.d.). <em>Things that are</em>. Milkweed Editions.</li>
+        <li>Moraes, F. de. (1544/1807). <em>Palmerin of England</em> (R. Southey, Trans.). Longman.</li>
+        <li>Pratt, M. L. (1992). <em>Imperial eyes</em>. Routledge.</li>
+        <li>Sontag, S. (1977). <em>On photography</em>. Farrar, Straus and Giroux.</li>
+        <li>Sterne, J. (2003). <em>The audible past</em>. Duke University Press.</li>
+        <li>Wright, M. P. (2013). <em>A proposed vocabulary exchange</em>. Canti Magnetici.</li>
+        <li>Wright, M. P. (2022). <em>Listening after nature</em>. Bloomsbury.</li>
+      </ul>
+      <div class="page-turn">
+        <button onclick="goTo(5)">&larr; Case Study</button>
+        <span class="page-num">vi</span>
+        <button onclick="goTo(0)">Cover &rarr;</button>
+      </div>
+      <p class="page-footer">Palmerins and Pigeonholes &bull; Mischa Nijhof &bull; Lusófona University, Lisbon &bull; 2026</p>
+    </div>
+
+  </div><!-- .book-stack -->
+</div><!-- #stage -->
+
+<script>
+  const TOTAL = 7;
+  let current = 0;
+  let transitioning = false;
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const navLinks = Array.from(document.querySelectorAll('#nav-chapters a'));
+  const ghost1 = document.getElementById('ghost1');
+  const ghost2 = document.getElementById('ghost2');
+
+  function setGhostHeight() {
+    const h = pages[current].offsetHeight;
+    ghost1.style.minHeight = h + 'px';
+    ghost2.style.minHeight = h + 'px';
+  }
+
+  function updateNav(n) {
+    navLinks.forEach((a, i) => a.classList.toggle('active', i === n));
+  }
+
+  function goTo(n) {
+    if (n === current || transitioning) return;
+    transitioning = true;
+    const leaving = pages[current];
+    leaving.classList.add('leaving');
+    setTimeout(() => {
+      leaving.classList.remove('active', 'leaving');
+      pages[n].classList.add('active');
+      current = n;
+      updateNav(n);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      setTimeout(() => { setGhostHeight(); transitioning = false; }, 600);
+    }, 300);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' && current < TOTAL - 1) goTo(current + 1);
+    if (e.key === 'ArrowLeft'  && current > 0)         goTo(current - 1);
+  });
+
+  updateNav(0);
+  setTimeout(setGhostHeight, 120);
+  window.addEventListener('resize', setGhostHeight);
+</script>
+</body>
+</html>
